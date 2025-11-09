@@ -29,6 +29,6 @@ It's a demonstration of multi-threaded socket programming, custom communication 
 
 ## 📚 Documentation (Wiki)
 
-For detailed information about the project's architecture, communication protocol, error codes, and a step-by-step guide on how to run the application, please visit our comprehensive **[project Wiki](https://github.com/YOUR_USERNAME/YOUR_REPOSITORY/wiki)**.
+For detailed information about the project's architecture, communication protocol, error codes, and a step-by-step guide on how to run the application, please visit our comprehensive **[project Wiki](https://github.com/aiyh0/CloudCalculator/wiki)**.
 
 The wiki is the primary source of documentation for this project.
