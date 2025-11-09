@@ -4,12 +4,13 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Deque;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.NoSuchElementException;
 
 public class CalcServer {
     public static void main(String[] args) throws Exception {
-        //String output = calculate("5 + ( 2 ^ 3 * 4 - 2 ) / 5");
-        String output = calculate("5 + 4 * 10 / 0");
-        System.out.println(output);
+        // String value = calculate("26-8+6=35");
+        // System.out.println(value);
 
         final int PORT = 9999;
         try(
@@ -36,25 +37,45 @@ public class CalcServer {
         @Override
         public void run(){
             try(
-                BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-                PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+                ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
+                ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
             ){
                 String clientAddress = socket.getRemoteSocketAddress().toString();
                 System.out.println("Connected to client: " + clientAddress);
-                out.println("Caculator program. Write an expression.(Infix)");
-                String line;
-                while((line = in.readLine()) != null){
-                    if(line.equalsIgnoreCase("bye")){
-                        out.println("Goodbye");
+               
+                // read and write object according to protocol
+                RequestProtocol request;
+                while((request = (RequestProtocol)in.readObject()) != null){
+
+                    // RequestProtocol: END
+                    if(request.getOption() == Option.END){
+                        System.out.println(clientAddress + " ended connection");
                         break;
                     }
-                    System.out.println(clientAddress + ": " + line);
-                    try{
-                        String result = calculate(line);
-                        out.println(result);                      
-                    } catch(Exception e){
-                        out.println("Invalid expression: " + e.getMessage());
-                    }                   
+
+                    // RequestProtocol: CALC <expression>
+                    String expression = request.getExpression();
+                    System.out.println(clientAddress + ": " + expression);
+
+                    // ResponseProtocol: SUCCUESS <value>
+                    try{             
+                        String answer = calculate(expression);
+                        out.writeObject(ResponseProtocol.createSuccess(answer));      
+                    } 
+                    // ResponseProtocol: ERROR <errorCode>
+                    catch(ArithmeticException e){ // divide by zero                       
+                        out.writeObject(ResponseProtocol.createError(ErrorCode.DIVIDE_BY_ZERO));
+                    } catch(NumberFormatException e){ // fail to parseDouble (invalid operator or operand) 
+                        out.writeObject(ResponseProtocol.createError(ErrorCode.INVALID_TOKEN));
+                    } catch(NoSuchElementException e){ // pop empty stack (missing operand)        
+                        out.writeObject(ResponseProtocol.createError(ErrorCode.MISSING_OPERAND));
+                    } catch(MissingOperatorException e){
+                        out.writeObject(ResponseProtocol.createError(ErrorCode.MISSING_OPERATOR));
+                    } catch(ParenthesisException e){
+                        out.writeObject(ResponseProtocol.createError(ErrorCode.MISMATCHING_PARENTHESIS));
+                    } finally{
+                        out.flush();
+                    }                
                 }
             } catch(IOException e){
                 System.err.println(e.getMessage());
@@ -90,8 +111,34 @@ public class CalcServer {
         rightAssoc.put("%",false);
         rightAssoc.put("^",true);
 
-        String[] tokens = expression.trim().split("\\s+");
-        String output = " ";
+        // tokenize expression
+        String exp = expression.trim();
+        String temp = "";
+        Deque<String> tokens = new ArrayDeque<>();
+        for(int i=0; i<exp.length(); i++){
+            String c = "" + exp.charAt(i);
+
+            if(precedence.containsKey(c) || c.equals("(") || 
+                c.equals(")") || c.equals(" ")){
+                if(temp.length() > 0){
+                    tokens.add(temp);
+                    temp = "";
+                }
+                if(c.equals(" ")){
+                    continue;
+                }
+                tokens.add(c);
+            }
+            else{
+                temp += c;
+            }
+        }
+        if(temp.length() > 0){
+            tokens.add(temp);
+        }
+
+        // convert into postfix expression;
+        Deque<String> output = new ArrayDeque<>();
         Deque<String> opstack = new ArrayDeque<>();
 
         for(String token: tokens){
@@ -100,7 +147,10 @@ public class CalcServer {
             } 
             else if(token.equals(")")){
                 while(!opstack.isEmpty() && !opstack.peek().equals("(")){
-                    output += opstack.pop() + " ";
+                    output.add(opstack.pop());
+                }
+                if(opstack.isEmpty()){
+                    throw new ParenthesisException("Missing opening parenthesis");
                 }
                 opstack.pop();
             }
@@ -110,23 +160,25 @@ public class CalcServer {
                         if(opstack.peek().equals("(")) break;
                         if(precedence.get(token) > precedence.get(opstack.peek())) break;
                         if(precedence.get(token) == precedence.get(opstack.peek()) && rightAssoc.get(token)) break;
-                        output += opstack.pop() + " ";
+                        output.add(opstack.pop());
                     }
                     opstack.push(token);
                 }
                 else{
-                    output += Double.parseDouble(token) + " ";
+                    output.add("" + Double.parseDouble(token));
                 }
             }
         }
         while(!opstack.isEmpty()){
-            output += opstack.pop() + " ";
+            if(opstack.peek().equals("(")){
+                throw new ParenthesisException("Missing closing parenthesis");
+            }
+            output.add(opstack.pop());
         }
 
         // evaluate postfix expression
-        tokens = output.trim().split("\\s+");
         Deque<Double> result = new ArrayDeque<>();
-        for(String token: tokens){
+        for(String token: output){
             if(precedence.containsKey(token)){
                 double right = result.pop(); 
                 double left = result.pop();
@@ -135,9 +187,19 @@ public class CalcServer {
                     case "+": result.push(left + right); break;
                     case "-": result.push(left - right); break;
                     case "*": result.push(left * right); break;
-                    case "/": result.push(left / right); break;
-                    case "%": result.push(left % right); break;
                     case "^": result.push(Math.pow(left, right)); break;
+                    case "/": 
+                        if(right == 0){
+                            throw new ArithmeticException();
+                        }
+                        result.push(left / right); 
+                        break;
+                    case "%": 
+                        if(right == 0){
+                            throw new ArithmeticException();
+                        }
+                        result.push(left % right); 
+                        break;
                     default: 
                 }
             }
@@ -146,6 +208,27 @@ public class CalcServer {
             }
         }
 
+        if(result.size() > 1){
+            throw new MissingOperatorException();
+        }
         return String.valueOf(result.peek());
+    }
+
+    // custom exception for handling special case
+    private static class MissingOperatorException extends RuntimeException {
+        MissingOperatorException(String message){
+            super(message);
+        }
+        MissingOperatorException(){
+            super("Missing operator");
+        }
+    }
+    private static class ParenthesisException extends RuntimeException {
+        ParenthesisException(String message){
+            super(message);
+        }
+        ParenthesisException(){
+            super("Missing Parenthesis");
+        }
     }
 }

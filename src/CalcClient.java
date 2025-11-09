@@ -4,26 +4,57 @@ import java.io.*;
 
 public class CalcClient {
     public static void main (String[] args) throws Exception{
-        final int PORT = 9999;
-        final String HOST = "localhost";
+        String host;
+        int port;
 
+        // open server_info file
         try(
-            Socket socket = new Socket(HOST, PORT);
-            BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
-            PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
+            Scanner sc = new Scanner(new FileInputStream("src/server_info.dat"))
+        ){
+            host = sc.nextLine();
+            port = Integer.parseInt(sc.nextLine());
+            System.out.println("Read successful. Address copied.");
+        } catch(Exception e){
+            host = "localhost";
+            port = 9999;
+            System.err.println(e.getMessage());
+            System.err.println("Read failed. Set address to default.");
+        }
+        
+        // open socket
+        try(
+            Socket socket = new Socket(host, port);
+            ObjectOutputStream out = new ObjectOutputStream(socket.getOutputStream());
+            ObjectInputStream in = new ObjectInputStream(socket.getInputStream());
             Scanner sc = new Scanner(System.in);
         ){
-            // Welcome message
-            System.out.println(in.readLine());
+            System.out.println("Connected to Server");
 
+            // read and write according to protocol
             while(true){
                 String expression = sc.nextLine();
-                out.println(expression); // send expression
+
+                // RequestProtocol: END
                 if(expression.equalsIgnoreCase("bye")){
+                    out.writeObject(RequestProtocol.createEnd());
+                    out.flush();
                     break;
                 }
-                String answer = in.readLine(); // get answer
-                System.out.println(answer);
+
+                // RequestProtocol: CALC <expression>
+                out.writeObject(RequestProtocol.createCalculate(expression));
+                out.flush();               
+                ResponseProtocol response = (ResponseProtocol)in.readObject();
+
+                // ResponseProtocol: SUCCUESS <value>
+                if(response.getStatus() == Status.SUCCESS){
+                    String answer = response.getValue();
+                    System.out.println(answer);
+                }
+                // ResponseProtocol: ERROR <errorCode>
+                else{
+                    System.out.println("Error code: " + response.getErrorCode());
+                }
             }
         } catch(IOException e){
             System.err.println(e.getMessage());
