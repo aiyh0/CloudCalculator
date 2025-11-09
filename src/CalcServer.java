@@ -4,22 +4,20 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Deque;
 import java.util.ArrayDeque;
-import java.util.ArrayList;
 import java.util.NoSuchElementException;
 
 public class CalcServer {
     public static void main(String[] args) throws Exception {
-        // String value = calculate("26-8+6=35");
-        // System.out.println(value);
-
+        // open listen socket
         final int PORT = 9999;
         try(
             ServerSocket serverSocket = new ServerSocket(PORT);
         ){
             while(true){
-                Socket clientSocket = serverSocket.accept();
+                // accept client's connection request. open client socket 
+                Socket clientSocket = serverSocket.accept(); 
                 ClientHandler clientHandler = new ClientHandler(clientSocket);
-                new Thread(clientHandler).start();
+                new Thread(clientHandler).start(); // handle client with new thread
             }
         } catch(IOException e){
             System.err.println(e.getMessage());
