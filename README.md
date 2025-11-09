@@ -1,21 +1,34 @@
-# CloudCalculator
+# Networked Calculator
 
-## Getting Started
+This is a simple client-server application written in Java that provides remote calculation services. The server can handle multiple concurrent clients, evaluate complex mathematical expressions, and return the results.
 
-Welcome to the VS Code Java world. Here is a guideline to help you get started to write Java code in Visual Studio Code.
+It's a demonstration of multi-threaded socket programming, custom communication protocols, and the implementation of the Shunting-yard algorithm for parsing mathematical expressions.
 
-## Folder Structure
+## ✨ Features
 
-The workspace contains two folders by default, where:
+*   **Client-Server Architecture**: A robust TCP-based server and a simple command-line client.
+*   **Multi-Threaded Server**: Can handle multiple client connections simultaneously.
+*   **Infix Expression Support**: Evaluates standard mathematical expressions like `(5 + 3) * 2`.
+*   **Full Operator Support**: Includes `+`, `-`, `*`, `/`, `%` (modulo), and `^` (power).
+*   **Error Handling**: Gracefully handles invalid expressions and provides specific error codes.
 
-- `src`: the folder to maintain sources
-- `lib`: the folder to maintain dependencies
+## 🚀 Quick Start
 
-Meanwhile, the compiled output files will be generated in the `bin` folder by default.
+1.  **Compile the source code:**
+    ```bash
+    javac -d bin src/*.java
+    ```
+2.  **Start the server:**
+    ```bash
+    java -cp bin CalcServer
+    ```
+3.  **In a new terminal, start the client:**
+    ```bash
+    java -cp bin CalcClient
+    ```
 
-> If you want to customize the folder structure, open `.vscode/settings.json` and update the related settings there.
+## 📚 Documentation (Wiki)
 
-## Dependency Management
+For detailed information about the project's architecture, communication protocol, error codes, and a step-by-step guide on how to run the application, please visit our comprehensive **[project Wiki](https://github.com/YOUR_USERNAME/YOUR_REPOSITORY/wiki)**.
 
-The `JAVA PROJECTS` view allows you to manage your dependencies. More details can be found [here](https://github.com/microsoft/vscode-java-dependency#manage-dependencies).
->>>>>>> c7e3fa7 (First Commit)
+The wiki is the primary source of documentation for this project.
